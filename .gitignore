@@ -1,0 +1,5 @@
+.ruby-version
+.ruby-gemset
+ext/fopen_struct/Makefile
+ext/fopen_struct/fopen_struct.o
+ext/fopen_struct/fopen_struct.so
