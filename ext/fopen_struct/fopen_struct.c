@@ -12,6 +12,7 @@ static ID id_battery;
 static ID id_hash;
 static ID id_map;
 static ID id_sort;
+static ID id_default;
 static ID id_ivar_for_name;
 static ID id_ivar_for_setter;
 
@@ -201,6 +202,11 @@ static VALUE fos_each_pair(VALUE self) {
   for (i = 0; i < ivs_count; i++) {
     iv_name = rb_ary_entry(ivs, i);
     iv_id = SYM2ID(iv_name);
+
+    if (iv_id == rb_intern("@method_missing_calls_count")) {
+      continue;
+    }
+
     iv = rb_ivar_get(self, iv_id);
 
     str_name_orig = rb_id2name(iv_id);
@@ -311,7 +317,7 @@ static VALUE fos_respond_to_p(VALUE self, VALUE name) {
   VALUE ivar;
   ID ivar_id;
   const char* str_name_orig;
-  size_t str_name_length;
+  long str_name_length;
 
   str_name_orig = rb_id2name(SYM2ID(name));
   str_name_length = strlen(str_name_orig);
@@ -334,6 +340,43 @@ static VALUE fos_respond_to_p(VALUE self, VALUE name) {
   return rb_call_super(1, argv);
 }
 
+static void define_variable_accessor(VALUE self, VALUE name) {
+  VALUE klass;
+
+  klass = rb_class_of(self);
+  rb_define_attr(klass, rb_id2name(SYM2ID(name)), 1, 1);
+}
+
+static void increase_missing_calls_count(VALUE self, VALUE name) {
+  VALUE missing_calls_count, count, calls_until_define_accessor;
+  const char* str_name_orig;
+  long str_name_length;
+
+  str_name_orig = rb_id2name(SYM2ID(name));
+  str_name_length = strlen(str_name_orig);
+  char str_name[str_name_length];
+  strncpy(str_name, str_name_orig + 1, str_name_length);
+  str_name_length = strlen(str_name);
+  if (str_name[str_name_length - 1] == '=') {
+    str_name[str_name_length - 1] = 0;
+  }
+  name = ID2SYM(rb_intern(str_name));
+
+  missing_calls_count = rb_iv_get(self, "@method_missing_calls_count");
+  count = rb_hash_aref(missing_calls_count, name);
+  if (NIL_P(count)) {
+    count = INT2FIX(0);
+  }
+  count = INT2NUM(NUM2INT(count) + 1);
+  rb_hash_aset(missing_calls_count, name, count);
+
+  calls_until_define_accessor = rb_iv_get(cFOpenStruct, "@calls_until_define_accessor");
+
+  if (!NIL_P(calls_until_define_accessor) && NUM2INT(calls_until_define_accessor) >= NUM2INT(count)) {
+    define_variable_accessor(self, name);
+  }
+}
+
 static VALUE fos_method_missing(int argc, VALUE* argv, VALUE self) {
   VALUE name;
 
@@ -345,6 +388,9 @@ static VALUE fos_method_missing(int argc, VALUE* argv, VALUE self) {
 
     ivar = fos_ivar_for_name(self, name);
     ivar_id = SYM2ID(ivar);
+
+    increase_missing_calls_count(self, ivar);
+
     if (rb_ivar_defined(self, ivar_id)) {
       return rb_ivar_get(self, ivar_id);
     }
@@ -357,6 +403,9 @@ static VALUE fos_method_missing(int argc, VALUE* argv, VALUE self) {
 
       ivar = fos_ivar_for_setter(self, name);
       ivar_id = SYM2ID(ivar);
+
+      increase_missing_calls_count(self, ivar);
+
       return rb_ivar_set(self, ivar_id, argv[1]);
     } else {
       return rb_call_super(argc, argv);
@@ -377,6 +426,8 @@ static VALUE fos_initialize(int argc, VALUE* argv, VALUE self) {
     table = argv[0];
   }
 
+  rb_iv_set(self, "@method_missing_calls_count", rb_hash_new());
+
   rb_block_call(table, id_each_pair, 0, 0, set_table_variables_block, self);
 
   return self;
@@ -394,6 +445,7 @@ void Init_fopen_struct() {
   id_hash = rb_intern("hash");
   id_map = rb_intern("map");
   id_sort = rb_intern("sort");
+  id_default = rb_intern("default");
   id_ivar_for_name = rb_intern("ivar_for_name");
   id_ivar_for_setter = rb_intern("ivar_for_setter");
 
@@ -403,6 +455,9 @@ void Init_fopen_struct() {
   rb_define_alias(cFOpenStructSingleton, "old_new", "new");
   rb_define_method(cFOpenStructSingleton, "create_class", fos_class_create_class, 1);
   rb_define_method(cFOpenStructSingleton, "new", fos_class_new, -1);
+
+  rb_define_attr(cFOpenStructSingleton, "calls_until_define_accessor", 1, 1);
+  rb_iv_set(cFOpenStruct, "@calls_until_define_accessor", Qnil);
 
   rb_iv_set(cFOpenStruct, "@cache", rb_hash_new());
   rb_cv_set(cFOpenStruct, "@@ivar_for_names", rb_hash_new());

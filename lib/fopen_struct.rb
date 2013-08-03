@@ -11,6 +11,7 @@ class FOpenStruct
      begin
        first = true
        instance_variables.each do |ivar|
+         next if ivar == :@method_missing_calls_count
          str << "," unless first
          first = false
          str << " #{ivar[1..-1]}=#{instance_variable_get(ivar).inspect}"
