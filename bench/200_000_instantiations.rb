@@ -9,7 +9,7 @@ N = 200_000
 
 puts "#{N} instantiations:"
 
-bmbm 14 do |b|
+bmbm 36 do |b|
   b.report "OpenStruct" do
     N.times do
       OpenStruct.new a: 1, b: 2, c: 3
@@ -23,6 +23,14 @@ bmbm 14 do |b|
   end
 
   b.report "FOpenStruct" do
+    N.times do
+      FOpenStruct.new a: 1, b: 2, c: 3
+    end
+  end
+
+  FOpenStruct.calls_until_define_accessor = 10
+
+  b.report "FOpenStruct with accessor definition" do
     N.times do
       FOpenStruct.new a: 1, b: 2, c: 3
     end

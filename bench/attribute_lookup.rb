@@ -9,7 +9,7 @@ N = 5_000_000
 
 puts "Attribute lookups:"
 
-bmbm 14 do |b|
+bmbm 36 do |b|
   b.report "OpenStruct" do
     os = OpenStruct.new a: 1, b: 2, c: 3
     N.times do
@@ -29,6 +29,17 @@ bmbm 14 do |b|
   end
 
   b.report "FOpenStruct" do
+    os = FOpenStruct.new a: 1, b: 2, c: 3
+    N.times do
+      os.a
+      os.b
+      os.c
+    end
+  end
+
+  FOpenStruct.calls_until_define_accessor = 10
+
+  b.report "FOpenStruct with accessor definition" do
     os = FOpenStruct.new a: 1, b: 2, c: 3
     N.times do
       os.a

@@ -9,7 +9,7 @@ N = 5_000_000
 
 puts "Dynamic attribute lookup:"
 
-bmbm 14 do |b|
+bmbm 36 do |b|
   b.report "OpenStruct" do
     os = OpenStruct.new
     os.a = 1
@@ -35,6 +35,20 @@ bmbm 14 do |b|
   end
 
   b.report "FOpenStruct" do
+    os = FOpenStruct.new
+    os.a = 1
+    os.b = 2
+    os.c = 3
+    N.times do
+      os.a
+      os.b
+      os.c
+    end
+  end
+
+  FOpenStruct.calls_until_define_accessor = 10
+
+  b.report "FOpenStruct with accessor definition" do
     os = FOpenStruct.new
     os.a = 1
     os.b = 2
